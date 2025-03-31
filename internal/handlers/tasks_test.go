@@ -1,4 +1,4 @@
-package main
+package handlers_test
 
 import (
 	"bytes"
@@ -8,45 +8,19 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
-
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
+	"todo-api/pkg/db"
+	"todo-api/internal/handlers"
+	"todo-api/internal/models"
 )
 
-// InitTestDB инициализирует тестовую базу SQLite в памяти
-func InitTestDB() string {
-	// Подключаемся к PostgreSQL
-	dsn := "host=localhost user=user password=secret dbname=testing port=5432 sslmode=disable"
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
-	if err != nil {
-		panic("Ошибка подключения к PostgreSQL: " + err.Error())
-	}
-
-	// Создаём временную схему для тестов
-	schemaName := "test_schema_" + fmt.Sprintf("%d", time.Now().UnixNano())
-	db.Exec(fmt.Sprintf("DROP SCHEMA IF EXISTS %s CASCADE", schemaName))
-	db.Exec(fmt.Sprintf("CREATE SCHEMA %s", schemaName))
-	db.Exec(fmt.Sprintf("SET search_path TO %s", schemaName))
-
-	// Выполняем миграцию в тестовой схеме
-	if err := db.AutoMigrate(&Task{}); err != nil {
-		panic("Ошибка миграции базы: " + err.Error())
-	}
-
-	// Переопределяем глобальную переменную DB
-	DB = db
-	return schemaName
-}
-
-func SeedTasks(count int) []Task {
-	tasks := make([]Task, count)
+func SeedTasks(count int) []models.Task {
+	tasks := make([]models.Task, count)
 	for i := 0; i < count; i++ {
-		tasks[i] = Task{
+		tasks[i] = models.Task{
 			Title: "Task " + string(rune('A'+i)), // Task A, Task B, Task C...
 			Done:  i%2 == 0,                      // Чередуем true/false
 		}
-		if err := DB.Create(&tasks[i]).Error; err != nil {
+		if err := db.DB.Create(&tasks[i]).Error; err != nil {
 			panic("Ошибка создания тестовой записи: " + err.Error())
 		}
 	}
@@ -55,10 +29,10 @@ func SeedTasks(count int) []Task {
 
 func TestGetTasks(t *testing.T) {
 	// Инициализируем тестовую базу и сохраняем имя схемы
-	schemaName := InitTestDB()
+	schemaName := db.InitTestDB()
 	defer func() {
 		// Очищаем тестовую схему после теста
-		DB.Exec(fmt.Sprintf("DROP SCHEMA IF EXISTS %s CASCADE", schemaName))
+		db.DB.Exec(fmt.Sprintf("DROP SCHEMA IF EXISTS %s CASCADE", schemaName))
 	}()
 
 	// Генерируем 3 тестовые записи
@@ -74,7 +48,7 @@ func TestGetTasks(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	// Вызываем обработчик (оригинальный, без параметров db)
-	tasksHandler(rr, req)
+	handlers.TasksHandler(rr, req)
 
 	// Проверяем статус-код
 	if status := rr.Code; status != http.StatusOK {
@@ -82,7 +56,7 @@ func TestGetTasks(t *testing.T) {
 	}
 
 	// Проверяем тело ответа
-	var gotTasks []Task
+	var gotTasks []models.Task
 	if err := json.NewDecoder(rr.Body).Decode(&gotTasks); err != nil {
 		t.Fatalf("Ошибка десериализации ответа: %v", err)
 	}
@@ -101,10 +75,10 @@ func TestGetTasks(t *testing.T) {
 }
 
 func TestGetTask(t *testing.T) {
-	schemaName := InitTestDB()
+	schemaName := db.InitTestDB()
 	defer func() {
 		// Очищаем тестовую схему после теста
-		DB.Exec(fmt.Sprintf("DROP SCHEMA IF EXISTS %s CASCADE", schemaName))
+		db.DB.Exec(fmt.Sprintf("DROP SCHEMA IF EXISTS %s CASCADE", schemaName))
 	}()
 
 	// Генерируем тестовую запись
@@ -122,7 +96,7 @@ func TestGetTask(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	// Вызываем обработчик
-	taskHandler(rr, req) // Предполагается, что у вас есть taskHandler для /tasks/{id}
+	handlers.TaskHandler(rr, req) // Предполагается, что у вас есть handlers.taskHandler для /tasks/{id}
 
 	// Проверяем статус-код
 	if status := rr.Code; status != http.StatusOK {
@@ -130,7 +104,7 @@ func TestGetTask(t *testing.T) {
 	}
 
 	// Проверяем тело ответа
-	var gotTasks Task
+	var gotTasks models.Task
 	if err := json.NewDecoder(rr.Body).Decode(&gotTasks); err != nil {
 		t.Fatalf("Ошибка десериализации ответа: %v", err)
 	}
@@ -141,14 +115,14 @@ func TestGetTask(t *testing.T) {
 }
 
 func TestCreateTask(t *testing.T) {
-	schemaName := InitTestDB()
+	schemaName := db.InitTestDB()
 	defer func() {
 		// Очищаем тестовую схему после теста
-		DB.Exec(fmt.Sprintf("DROP SCHEMA IF EXISTS %s CASCADE", schemaName))
+		db.DB.Exec(fmt.Sprintf("DROP SCHEMA IF EXISTS %s CASCADE", schemaName))
 	}()
 
 	// Создаём задачу для отправки
-	task := Task{
+	task := models.Task{
 		Title: "task title",
 		Done:  true,
 	}
@@ -170,7 +144,7 @@ func TestCreateTask(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	// Вызываем обработчик
-	tasksHandler(rr, req)
+	handlers.TasksHandler(rr, req)
 
 	// Проверяем статус-код
 	if status := rr.Code; status != http.StatusCreated {
@@ -178,7 +152,7 @@ func TestCreateTask(t *testing.T) {
 	}
 
 	// Проверяем тело ответа
-	var createdTask Task
+	var createdTask models.Task
 	if err := json.NewDecoder(rr.Body).Decode(&createdTask); err != nil {
 		t.Fatalf("Ошибка десериализации ответа: %v", err)
 	}
@@ -194,24 +168,24 @@ func TestCreateTask(t *testing.T) {
 		t.Errorf("Ожидался Done %v, получен %v", task.Done, createdTask.Done)
 	}
 
-	var savedTask Task
-	if err := DB.First(&savedTask, 1).Error; err != nil {
+	var savedTask models.Task
+	if err := db.DB.First(&savedTask, 1).Error; err != nil {
 		t.Errorf("Задача не найдена в базе: %v", err)
 	}
 }
 func TestUpdateTask(t *testing.T) {
 	// Подготовка: добавляем тестовую задачу
-	schemaName := InitTestDB()
+	schemaName := db.InitTestDB()
 	defer func() {
 		// Очищаем тестовую схему после теста
-		DB.Exec(fmt.Sprintf("DROP SCHEMA IF EXISTS %s CASCADE", schemaName))
+		db.DB.Exec(fmt.Sprintf("DROP SCHEMA IF EXISTS %s CASCADE", schemaName))
 	}()
 
 	task1 := SeedTasks(1)
 	// Формируем URL с ID
 	id := task1[0].ID
 	url := fmt.Sprintf("/tasks/%d", id)
-	task := Task{
+	task := models.Task{
 		ID:    id,
 		Title: "task updated",
 		Done:  true,
@@ -234,7 +208,7 @@ func TestUpdateTask(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	// Вызываем обработчик
-	taskHandler(rr, req) // Предполагается, что у вас есть taskHandler для /tasks
+	handlers.TaskHandler(rr, req) // Предполагается, что у вас есть handlers.taskHandler для /tasks
 
 	// Проверяем статус-код
 	if status := rr.Code; status != http.StatusOK {
@@ -249,10 +223,10 @@ func TestUpdateTask(t *testing.T) {
 }
 
 func TestDeleteTask(t *testing.T) {
-	schemaName := InitTestDB()
+	schemaName := db.InitTestDB()
 	defer func() {
 		// Очищаем тестовую схему после теста
-		DB.Exec(fmt.Sprintf("DROP SCHEMA IF EXISTS %s CASCADE", schemaName))
+		db.DB.Exec(fmt.Sprintf("DROP SCHEMA IF EXISTS %s CASCADE", schemaName))
 	}()
 
 	task1 := SeedTasks(1)
@@ -269,7 +243,7 @@ func TestDeleteTask(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	// Вызываем обработчик
-	taskHandler(rr, req) // Предполагается, что у вас есть taskHandler для /tasks/{id}
+	handlers.TaskHandler(rr, req) // Предполагается, что у вас есть handlers.taskHandler для /tasks/{id}
 
 	// Проверяем статус-код
 	if status := rr.Code; status != http.StatusNoContent {

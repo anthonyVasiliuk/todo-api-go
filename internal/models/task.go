@@ -1,4 +1,4 @@
-package main
+package models
 
 // Task — структура для задачи
 type Task struct {
