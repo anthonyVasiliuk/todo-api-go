@@ -2,10 +2,13 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"todo-api/internal/handlers"
 	"todo-api/internal/middleware"
 	"todo-api/pkg/db"
+
+	"github.com/joho/godotenv"
 )
 
 var (
@@ -13,6 +16,11 @@ var (
 )
 
 func main() {
+	err := godotenv.Load()
+  if err != nil {
+    log.Fatal("Error loading .env file")
+  }
+	
 	if err := db.InitDB(); err != nil {
 		panic(err)
 	}

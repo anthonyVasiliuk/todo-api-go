@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"todo-api/internal/handlers"
 	"todo-api/internal/models"
@@ -72,7 +73,7 @@ func TestLogin(t *testing.T) {
 		db.DB.Exec(fmt.Sprintf("DROP SCHEMA IF EXISTS %s CASCADE", schemaName))
 	}()
 
-	var jwtSecret = []byte("your-secret-key")
+	var jwtSecret = []byte(os.Getenv("JWT_SECRET_TESTING"))
 
 	// Создаём тестового пользователя с хешированным паролем
 	user := models.User{

@@ -2,6 +2,7 @@ package db
 
 import (
 	"fmt"
+	"os"
 	"time"
 	"todo-api/internal/models"
 
@@ -13,7 +14,13 @@ var DB *gorm.DB
 
 func InitDB() error {
 	// Строка подключения (DSN)
-	dsn := "host=localhost user=user password=secret dbname=todo port=5432 sslmode=disable TimeZone=UTC"
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=UTC",
+		os.Getenv("DATABASE_HOST"),
+		os.Getenv("DATABASE_USER"),
+		os.Getenv("DATABASE_PASSWORD"),
+		os.Getenv("DATABASE_NAME"),
+		os.Getenv("DATABASE_PORT"),
+	)
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		return fmt.Errorf("ошибка подключения к базе данных: %v", err)
@@ -30,7 +37,7 @@ func InitTestDB() string {
 	dsn := "host=localhost user=user password=secret dbname=testing port=5432 sslmode=disable"
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-			panic("Ошибка подключения к PostgreSQL: " + err.Error())
+		panic("Ошибка подключения к PostgreSQL: " + err.Error())
 	}
 
 	schemaName := "test_schema_" + fmt.Sprintf("%d", time.Now().UnixNano())
@@ -39,7 +46,7 @@ func InitTestDB() string {
 	db.Exec(fmt.Sprintf("SET search_path TO %s", schemaName))
 
 	if err := db.AutoMigrate(&models.User{}, &models.Task{}); err != nil {
-			panic("Ошибка миграции базы: " + err.Error())
+		panic("Ошибка миграции базы: " + err.Error())
 	}
 
 	DB = db

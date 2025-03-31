@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 	"time"
 	"todo-api/internal/models"
 	"todo-api/pkg/db"
@@ -11,7 +12,15 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var jwtSecret = []byte("your-secret-key") // В продакшене используйте переменные окружения
+var jwtSecret = []byte(getJWTSecret())
+
+func getJWTSecret() string {
+	if os.Getenv("APP_ENV") != "production" {
+		return os.Getenv("JWT_SECRET_TESTING")
+	} else {
+		return os.Getenv("JWT_SECRET")
+	}
+}
 
 func Register(w http.ResponseWriter, r *http.Request) {
 	var user models.User
