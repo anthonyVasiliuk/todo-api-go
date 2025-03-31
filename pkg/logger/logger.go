@@ -24,7 +24,7 @@ func InitLogger() error {
 	})
 
 	// Путь к файлу логов
-	logFilePath := filepath.Join(".", "logs", "app-%Y%m%d.log")
+	logFilePath := filepath.Join(".", "/logs", "app-%Y%m%d.log")
 
 	// Настройка ротации
 	rl, err := rotatelogs.New( // Используем fileRotatelogs как пакет, а не переменную

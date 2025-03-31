@@ -18,19 +18,48 @@ func TasksHandler(w http.ResponseWriter, r *http.Request) {
 	userID, _ := strconv.Atoi(userIDStr)
 	switch r.Method {
 	case "GET":
-		var tasks []models.Task
-		var user models.User
-		if err := db.DB.First(&user, userID).Error; err != nil {
-			http.Error(w, "Пользователь не найден", http.StatusInternalServerError)
-			return
+		pageStr := r.URL.Query().Get("page")
+		limitStr := r.URL.Query().Get("limit")
+		doneStr := r.URL.Query().Get("done")
+
+		// Устанавливаем значения по умолчанию
+		page, err := strconv.Atoi(pageStr)
+		if err != nil || page < 1 {
+			page = 1 // По умолчанию первая страница
+		}
+		limit, err := strconv.Atoi(limitStr)
+		if err != nil || limit < 1 {
+			limit = 10 // По умолчанию 10 записей
 		}
 
-		query := db.DB
+		// Преобразуем done в bool (если параметр передан)
+		var doneFilter *bool
+		if doneStr != "" {
+			done, err := strconv.ParseBool(doneStr)
+			if err != nil {
+				logger.Log.Warnf("Неверный параметр done: %v", err)
+				http.Error(w, "Неверный параметр done", http.StatusBadRequest)
+				return
+			}
+			doneFilter = &done
+		}
+
+		// Вычисляем смещение
+		offset := (page - 1) * limit
+
+		// Формируем запрос
+		query := db.DB.Model(&models.Task{})
 		if role != models.RoleAdmin {
 			query = query.Where("user_id = ?", userID)
 		}
+		if doneFilter != nil {
+			query = query.Where("done = ?", *doneFilter)
+		}
 
-		if err := query.Find(&tasks).Error; err != nil {
+		// Применяем пагинацию и получаем задачи
+		var tasks []models.Task
+		if err := query.Offset(offset).Limit(limit).Find(&tasks).Error; err != nil {
+			logger.Log.Errorf("Ошибка получения задач: %v", err)
 			http.Error(w, "Ошибка получения задач", http.StatusInternalServerError)
 			return
 		}
