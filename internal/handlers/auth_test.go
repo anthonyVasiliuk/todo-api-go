@@ -65,6 +65,46 @@ func TestRegistration(t *testing.T) {
 	}
 }
 
+
+func TestRegistrationFail(t *testing.T) {
+	// Инициализируем тестовую базу и сохраняем имя схемы
+	schemaName := db.InitTestDB()
+	defer func() {
+		// Очищаем тестовую схему после теста
+		db.DB.Exec(fmt.Sprintf("DROP SCHEMA IF EXISTS %s CASCADE", schemaName))
+	}()
+
+	user := models.User{
+		Password: "password",
+	}
+
+	body, err := json.Marshal(user)
+
+	if err != nil {
+		t.Fatalf("Ошибка сериализации задачи: %v", err)
+	}
+
+	// Создаём POST-запрос
+	req, err := http.NewRequest("POST", "/register", bytes.NewBuffer(body))
+	if err != nil {
+		t.Fatalf("Ошибка создания запроса: %v", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	// Создаём ResponseRecorder
+	rr := httptest.NewRecorder()
+
+	// Вызываем обработчик
+	handlers.Register(rr, req)
+
+	// Проверяем статус-код
+	if status := rr.Code; status != http.StatusBadRequest {
+		t.Errorf("Ожидался статус %v, получен %v", http.StatusBadRequest, status)
+	}
+
+}
+
 func TestLogin(t *testing.T) {
 	// Инициализируем тестовую базу и сохраняем имя схемы
 	schemaName := db.InitTestDB()

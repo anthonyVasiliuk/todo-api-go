@@ -8,11 +8,13 @@ import (
 	"todo-api/internal/models"
 	"todo-api/pkg/db"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt"
 	"golang.org/x/crypto/bcrypt"
 )
 
 var jwtSecret = []byte(getJWTSecret())
+var validate = validator.New()
 
 func getJWTSecret() string {
 	if os.Getenv("APP_ENV") != "production" {
@@ -26,6 +28,10 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	var user models.User
 	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
 		http.Error(w, "Некорректный запрос", http.StatusBadRequest)
+		return
+	}
+	if err := validate.Struct(user); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -65,6 +71,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_id": user.ID,
+		"role":    user.Role,
 		"exp":     time.Now().Add(time.Hour * 24).Unix(),
 	})
 	tokenString, err := token.SignedString(jwtSecret)

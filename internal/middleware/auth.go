@@ -3,12 +3,21 @@ package middleware
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var jwtSecret = []byte("your-secret-key")
+var jwtSecret = []byte(getJWTSecret())
+
+func getJWTSecret() string {
+	if os.Getenv("APP_ENV") != "production" {
+		return os.Getenv("JWT_SECRET_TESTING")
+	} else {
+		return os.Getenv("JWT_SECRET")
+	}
+}
 
 func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -43,7 +52,14 @@ func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
+		role, ok := claims["role"].(string)
+		if !ok {
+			http.Error(w, "Роль не найдена в токене", http.StatusUnauthorized)
+			return
+		}
+
 		r.Header.Set("UserID", fmt.Sprintf("%d", int(userID)))
+		r.Header.Set("Role", role)
 		next(w, r)
 	}
 }

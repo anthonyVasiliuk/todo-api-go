@@ -17,10 +17,10 @@ var (
 
 func main() {
 	err := godotenv.Load()
-  if err != nil {
-    log.Fatal("Error loading .env file")
-  }
-	
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
 	if err := db.InitDB(); err != nil {
 		panic(err)
 	}
@@ -32,6 +32,8 @@ func main() {
 	// Защищённые эндпоинты
 	http.HandleFunc("/tasks", middleware.AuthMiddleware(handlers.TasksHandler))
 	http.HandleFunc("/tasks/", middleware.AuthMiddleware(handlers.TaskHandler))
+
+	http.HandleFunc("/users", middleware.AuthMiddleware(handlers.UsersHandler))
 
 	fmt.Println("Сервер запущен на :8080")
 	http.ListenAndServe(":8080", nil)
