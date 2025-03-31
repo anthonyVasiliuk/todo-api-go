@@ -1,0 +1,7 @@
+time="2025-03-31T21:52:07+03:00" level=info msg="Логгер инициализирован"
+time="2025-03-31T22:02:58+03:00" level=info msg="Логгер инициализирован"
+time="2025-03-31T22:03:02+03:00" level=warning msg="Уведомление для пользователя 1 отменено: context deadline exceeded"
+time="2025-03-31T22:03:02+03:00" level=info msg="Результат уведомления: Notification cancelled: context deadline exceeded"
+time="2025-03-31T22:03:55+03:00" level=info msg="Логгер инициализирован"
+time="2025-03-31T22:04:01+03:00" level=info msg="Уведомление отправлено пользователю 1: задача 'test title' создана"
+time="2025-03-31T22:04:01+03:00" level=info msg="Результат уведомления: Notification sent for task 'test title'"

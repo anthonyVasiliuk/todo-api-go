@@ -6,12 +6,30 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"todo-api/internal/handlers"
 	"todo-api/internal/models"
 	"todo-api/pkg/db"
+	"todo-api/pkg/logger"
 )
+
+func TestMain(m *testing.M) {
+	// Инициализируем зависимости
+	if err := logger.InitLogger(); err != nil {
+		fmt.Fprintf(os.Stderr, "Ошибка инициализации логгера: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Запускаем тесты
+	code := m.Run()
+
+	// Очистка (опционально)
+	// Здесь можно закрыть файлы логов или соединение с базой, если нужно
+
+	os.Exit(code)
+}
 
 func SeedTasks(count int) []models.Task {
 	tasks := make([]models.Task, count)
@@ -237,6 +255,36 @@ func TestCreateTask(t *testing.T) {
 		t.Errorf("Задача не найдена в базе: %v", err)
 	}
 }
+
+func TestTasksHandler_Post_AsyncNotification(t *testing.T) {
+	schemaName := db.InitTestDB()
+	defer db.DB.Exec(fmt.Sprintf("DROP SCHEMA IF EXISTS %s CASCADE", schemaName))
+
+	user := models.User{Username: "testuser", Password: "hashed", Role: models.RoleUser}
+	db.DB.Create(&user)
+
+	task := models.Task{Title: "Test Task", UserID: user.ID}
+	body, _ := json.Marshal(task)
+
+	req, _ := http.NewRequest("POST", "/tasks", bytes.NewBuffer(body))
+	req.Header.Set("UserID", fmt.Sprintf("%d", user.ID))
+	req.Header.Set("Role", models.RoleUser)
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	handlers.TasksHandler(rr, req)
+
+	if status := rr.Code; status != http.StatusCreated {
+		t.Errorf("Ожидался статус %v, получен %v", http.StatusCreated, status)
+	}
+
+	var createdTask models.Task
+	json.NewDecoder(rr.Body).Decode(&createdTask)
+	if createdTask.Title != task.Title {
+		t.Errorf("Ожидалось название %v, получено %v", task.Title, createdTask.Title)
+	}
+}
+
 func TestUpdateTask(t *testing.T) {
 	// Подготовка: добавляем тестовую задачу
 	schemaName := db.InitTestDB()

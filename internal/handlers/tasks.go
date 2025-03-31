@@ -1,25 +1,24 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 	"todo-api/internal/models"
 	"todo-api/pkg/db"
+	"todo-api/pkg/logger"
 )
 
 // Обработчик для списка задач
 func TasksHandler(w http.ResponseWriter, r *http.Request) {
+	userIDStr := r.Header.Get("UserID")
+	role := r.Header.Get("Role")
+	userID, _ := strconv.Atoi(userIDStr)
 	switch r.Method {
 	case "GET":
 		var tasks []models.Task
-		userIDStr := r.Header.Get("UserID")
-		userID, err := strconv.Atoi(userIDStr)
-		if err != nil {
-			http.Error(w, "UserID не найден в заголовке", http.StatusBadRequest)
-			return
-		}
-
 		var user models.User
 		if err := db.DB.First(&user, userID).Error; err != nil {
 			http.Error(w, "Пользователь не найден", http.StatusInternalServerError)
@@ -27,7 +26,7 @@ func TasksHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		query := db.DB
-		if user.Role != "admin" {
+		if role != models.RoleAdmin {
 			query = query.Where("user_id = ?", userID)
 		}
 
@@ -63,6 +62,16 @@ func TasksHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Ошибка создания задачи", http.StatusInternalServerError)
 			return
 		}
+
+		ch := make(chan string, 1) // Буферизированный канал
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		go notifyUser(ctx, userID, t.Title, ch)
+
+		// Можно не ждать результата в реальном коде, но для примера:
+		notificationResult := <-ch
+		logger.Log.Infof("Результат уведомления: %s", notificationResult)
+
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(t)
 

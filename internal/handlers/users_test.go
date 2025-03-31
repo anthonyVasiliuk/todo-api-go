@@ -36,3 +36,30 @@ func TestUsersHandler(t *testing.T) {
 		t.Errorf("UsersHandler() error = %v, wantErr %v", rr.Code, http.StatusOK)
 	}
 }
+
+func TestUsersHandlerForbiddenForRegularUser(t *testing.T) {
+	schemaName := db.InitTestDB()
+	defer func() {
+		db.DB.Exec(fmt.Sprintf("DROP SCHEMA IF EXISTS %s CASCADE", schemaName))
+	}()
+
+	users := []models.User{{Username: "regularuser", Password: "password", Role: models.RoleUser}}
+	if err := db.DB.Create(&users).Error; err != nil {
+		t.Fatalf("Ошибка создания тестовой записи: %v", err)
+	}
+
+	req, err := http.NewRequest("GET", "/users", nil)
+	if err != nil {
+		t.Fatalf("Ошибка создания запроса: %v", err)
+	}
+	req.Header.Set("Role", models.RoleUser)
+
+	rr := httptest.NewRecorder()
+
+	handlers.UsersHandler(rr, req)
+
+	if rr.Code != http.StatusForbidden {
+		t.Errorf("UsersHandler() error = %v, wantErr %v", rr.Code, http.StatusForbidden)
+	}
+}
+
