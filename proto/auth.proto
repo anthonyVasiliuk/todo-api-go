@@ -1,0 +1,18 @@
+syntax = "proto3";
+package auth;
+option go_package = "./proto"; // Путь для сгенерированного Go-кода
+
+// Определение сервиса
+service AuthService {
+    rpc VerifyToken (TokenRequest) returns (TokenResponse) {}
+}
+
+// Сообщения
+message TokenRequest {
+    string token = 1;
+}
+
+message TokenResponse {
+    int32 user_id = 1;
+    string role = 2;
+}
