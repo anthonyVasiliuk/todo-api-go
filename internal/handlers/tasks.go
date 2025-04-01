@@ -9,7 +9,11 @@ import (
 	"todo-api/internal/models"
 	"todo-api/pkg/db"
 	"todo-api/pkg/logger"
+
+	"github.com/go-playground/validator/v10"
 )
+
+var validate = validator.New()
 
 // Обработчик для списка задач
 func TasksHandler(w http.ResponseWriter, r *http.Request) {

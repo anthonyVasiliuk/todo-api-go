@@ -11,10 +11,6 @@ import (
 	"github.com/joho/godotenv"
 )
 
-var (
-	jwtSecret = []byte("your-secret-key") // Секретный ключ для JWT (в продакшене храните в переменных окружения)
-)
-
 func main() {
 	if err := logger.InitLogger(); err != nil {
 		panic(err)
@@ -28,10 +24,6 @@ func main() {
 	if err := db.InitDB(); err != nil {
 		panic(err)
 	}
-
-	// Открытые эндпоинты
-	http.HandleFunc("/register", handlers.Register)
-	http.HandleFunc("/login", handlers.Login)
 
 	// Защищённые эндпоинты
 	http.HandleFunc("/tasks", middleware.AuthMiddleware(handlers.TasksHandler))

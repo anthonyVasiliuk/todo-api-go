@@ -419,3 +419,54 @@ func TestDeleteTask(t *testing.T) {
 		t.Errorf("Ожидался ответ %v, получен %v", expected, got)
 	}
 }
+
+func TestTasksHandler_Get_Pagination(t *testing.T) {
+	schemaName := db.InitTestDB()
+	defer db.DB.Exec(fmt.Sprintf("DROP SCHEMA IF EXISTS %s CASCADE", schemaName))
+
+	user := models.User{Username: "testuser", Password: "hashed", Role: models.RoleUser}
+	db.DB.Create(&user)
+
+	// Создаём 10 задач
+	for i := 1; i <= 10; i++ {
+			task := models.Task{
+					Title:  fmt.Sprintf("Task %d", i),
+					Done:   i%2 == 0, // Чётные завершены
+					UserID: user.ID,
+			}
+			db.DB.Create(&task)
+	}
+
+	tests := []struct {
+			name      string
+			query     string
+			wantCount int
+	}{
+			{"Page 1, limit 5", "?page=1&limit=5", 5},
+			{"Page 2, limit 3", "?page=2&limit=3", 3},
+			{"Done true, limit 5", "?done=true&limit=5", 5}, // 5 чётных задач
+	}
+
+	for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+					req, _ := http.NewRequest("GET", "/tasks"+tt.query, nil)
+					req.Header.Set("UserID", fmt.Sprintf("%d", user.ID))
+					req.Header.Set("Role", models.RoleUser)
+					rr := httptest.NewRecorder()
+
+					handlers.TasksHandler(rr, req)
+
+					if status := rr.Code; status != http.StatusOK {
+							t.Errorf("Ожидался статус %v, получен %v", http.StatusOK, status)
+					}
+
+					var tasks []models.Task
+					if err := json.NewDecoder(rr.Body).Decode(&tasks); err != nil {
+							t.Fatalf("Ошибка десериализации: %v", err)
+					}
+					if len(tasks) != tt.wantCount {
+							t.Errorf("Ожидалось %d задач, получено %d", tt.wantCount, len(tasks))
+					}
+			})
+	}
+}
