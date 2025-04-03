@@ -470,3 +470,51 @@ func TestTasksHandler_Get_Pagination(t *testing.T) {
 			})
 	}
 }
+
+func BenchmarkTasksHandler_Get(b *testing.B) {
+	schemaName := db.InitTestDB()
+	defer db.DB.Exec(fmt.Sprintf("DROP SCHEMA IF EXISTS %s CASCADE", schemaName))
+
+	user := models.User{Username: "testuser", Password: "hashed", Role: models.RoleUser}
+	db.DB.Create(&user)
+
+	// Создаём 100 задач для теста
+	for i := 1; i <= 100; i++ {
+			task := models.Task{Title: fmt.Sprintf("Task %d", i), UserID: user.ID}
+			db.DB.Create(&task)
+	}
+
+	req, _ := http.NewRequest("GET", "/tasks?page=1&limit=10", nil)
+	req.Header.Set("UserID", fmt.Sprintf("%d", user.ID))
+	req.Header.Set("Role", models.RoleUser)
+
+	b.ResetTimer() // Сбрасываем таймер перед началом измерений
+
+	for i := 0; i < b.N; i++ {
+			rr := httptest.NewRecorder()
+			handlers.TasksHandler(rr, req)
+	}
+}
+
+// Бенчмарк для POST /tasks
+func BenchmarkTasksHandler_Post(b *testing.B) {
+	schemaName := db.InitTestDB()
+	defer db.DB.Exec(fmt.Sprintf("DROP SCHEMA IF EXISTS %s CASCADE", schemaName))
+
+	user := models.User{Username: "testuser", Password: "hashed", Role: models.RoleUser}
+	db.DB.Create(&user)
+
+	task := models.Task{Title: "Test Task", UserID: user.ID}
+	body, _ := json.Marshal(task)
+	req, _ := http.NewRequest("POST", "/tasks", bytes.NewBuffer(body))
+	req.Header.Set("UserID", fmt.Sprintf("%d", user.ID))
+	req.Header.Set("Role", models.RoleUser)
+	req.Header.Set("Content-Type", "application/json")
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+			rr := httptest.NewRecorder()
+			handlers.TasksHandler(rr, req)
+	}
+}

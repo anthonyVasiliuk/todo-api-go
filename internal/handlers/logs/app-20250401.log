@@ -1,5 +1,0 @@
-time="2025-04-01T18:45:27+03:00" level=info msg="Логгер с ротацией инициализирован"
-time="2025-04-01T18:45:30+03:00" level=info msg="Уведомление отправлено пользователю 1: задача 'task title' создана"
-time="2025-04-01T18:45:30+03:00" level=info msg="Результат уведомления: Notification sent for task 'task title'"
-time="2025-04-01T18:45:32+03:00" level=info msg="Уведомление отправлено пользователю 1: задача 'Test Task' создана"
-time="2025-04-01T18:45:32+03:00" level=info msg="Результат уведомления: Notification sent for task 'Test Task'"
