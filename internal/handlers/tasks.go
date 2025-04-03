@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -11,9 +12,13 @@ import (
 	"todo-api/pkg/logger"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/go-redis/redis/v8"
 )
 
 var validate = validator.New()
+var redisClient = redis.NewClient(&redis.Options{
+	Addr: "localhost:6379",
+})
 
 // Обработчик для списка задач
 func TasksHandler(w http.ResponseWriter, r *http.Request) {
@@ -51,6 +56,28 @@ func TasksHandler(w http.ResponseWriter, r *http.Request) {
 		// Вычисляем смещение
 		offset := (page - 1) * limit
 
+		// Формируем ключ с учётом nil и разыменования
+		var doneValue string
+		if doneFilter != nil {
+			doneValue = strconv.FormatBool(*doneFilter)
+		} else {
+			doneValue = "nil"
+		}
+		// Ключ для кэша
+		cacheKey := fmt.Sprintf("tasks:user:%d:page:%d:limit:%d:done:%s", userID, page, limit, doneValue)
+		ctx := context.Background()
+
+		// Проверяем кэш
+		cached, err := redisClient.Get(ctx, cacheKey).Bytes()
+		if err == nil {
+			logger.Log.Info("Данные взяты из кэша")
+			w.Header().Set("Content-Type", "application/json")
+			w.Write(cached)
+			return
+		} else {
+			logger.Log.Info("Данные не взяты из кэша", err)
+		}
+
 		// Формируем запрос
 		query := db.DB.Model(&models.Task{})
 		if role != models.RoleAdmin {
@@ -66,6 +93,15 @@ func TasksHandler(w http.ResponseWriter, r *http.Request) {
 			logger.Log.Errorf("Ошибка получения задач: %v", err)
 			http.Error(w, "Ошибка получения задач", http.StatusInternalServerError)
 			return
+		}
+
+		// Сериализуем и кэшируем
+		jsonData, _ := json.Marshal(tasks)
+		if err := redisClient.Set(ctx, cacheKey, jsonData, 10*time.Minute).Err(); err != nil {
+			logger.Log.Errorf("Ошибка записи в Redis: %v", err)
+			// Не прерываем выполнение, так как это не критично
+		} else {
+			logger.Log.Info("Данные сохранены в кэш")
 		}
 
 		json.NewEncoder(w).Encode(tasks)
